@@ -1,0 +1,95 @@
+/* หน้านี้ออกแบบให้ใช้บนมือถือ: กว้างไม่เกิน 480px ตรงกลางจอ */
+.login,
+.sheet {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.login {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+/* ช่องกรอกรหัส: ตัวใหญ่ อ่านง่าย */
+.code-input {
+  font-size: 2rem;
+  text-align: center;
+  letter-spacing: 12px;
+}
+
+.block {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+}
+
+.sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.pick b {
+  font-size: 1.2rem;
+}
+
+.pick .muted {
+  display: block;
+}
+
+.progress {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* การ์ดจุดส่ง: เลขลำดับ | ข้อมูล แล้วปุ่ม 3 ปุ่มอยู่แถวล่าง */
+.stop {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+}
+
+.stop.done {
+  opacity: 0.55; /* ส่งแล้ว = จางลง */
+}
+
+/* เลขลำดับในวงกลมสีของไรเดอร์ */
+.no {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.info p {
+  margin: 2px 0 0;
+}
+
+.acts {
+  grid-column: 1 / -1; /* ยาวเต็มการ์ด */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* ปุ่ม 3 ปุ่มกว้างเท่ากัน กดง่ายบนมือถือ */
+  gap: 8px;
+}
+
+.acts .btn {
+  text-align: center;
+  text-decoration: none;
+}
