@@ -1,0 +1,123 @@
+<div class="head">
+  <div>
+    <h1>จัดการลูกค้า</h1>
+    <p class="muted">ทั้งหมด {{ customers().length }} คน · คลิกบนแผนที่เพื่อปักหมุดบ้านลูกค้า</p>
+  </div>
+</div>
+
+@if (error()) {
+  <div class="alert error">{{ error() }}</div>
+}
+@if (success()) {
+  <div class="alert success">{{ success() }}</div>
+}
+
+<div class="grid">
+  <!-- ซ้าย: ฟอร์ม + ตาราง -->
+  <section class="left">
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h2>{{ editingId() === null ? 'เพิ่มลูกค้าใหม่' : 'แก้ไขลูกค้า #' + editingId() }}</h2>
+
+      <div class="row">
+        <div>
+          <label for="firstname">ชื่อ</label>
+          <input id="firstname" formControlName="firstname" />
+          @if (invalid('firstname')) {
+            <small class="err">กรุณากรอกชื่อ</small>
+          }
+        </div>
+        <div>
+          <label for="lastname">นามสกุล</label>
+          <input id="lastname" formControlName="lastname" />
+          @if (invalid('lastname')) {
+            <small class="err">กรุณากรอกนามสกุล</small>
+          }
+        </div>
+      </div>
+
+      <div>
+        <label for="phone">เบอร์โทร</label>
+        <input id="phone" formControlName="phone" inputmode="tel" placeholder="0812345678" />
+        @if (invalid('phone')) {
+          <small class="err">เบอร์โทร 9-10 หลัก ขึ้นต้นด้วย 0</small>
+        }
+      </div>
+
+      <div>
+        <label for="address">ที่อยู่</label>
+        <input id="address" formControlName="address" />
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="lat">ละติจูด</label>
+          <input id="lat" type="number" step="0.000001" formControlName="lat" />
+        </div>
+        <div>
+          <label for="lng">ลองจิจูด</label>
+          <input id="lng" type="number" step="0.000001" formControlName="lng" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" type="submit" [disabled]="saving()">
+          {{ saving() ? 'กำลังบันทึก…' : editingId() === null ? 'เพิ่ม' : 'บันทึก' }}
+        </button>
+        @if (editingId() !== null) {
+          <button class="btn" type="button" (click)="resetForm()">ยกเลิก</button>
+        }
+      </div>
+    </form>
+
+    <div class="card">
+      <input
+        class="search"
+        placeholder="ค้นหาชื่อ / นามสกุล / เบอร์โทร"
+        [value]="keyword()"
+        (input)="keyword.set($any($event.target).value)"
+      />
+
+      @if (loading()) {
+        <p class="muted">กำลังโหลด…</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ชื่อ</th>
+                <th>เบอร์โทร</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of filtered(); track c.id) {
+                <tr [class.selected]="c.id === editingId()">
+                  <td>{{ c.id }}</td>
+                  <td>
+                    {{ c.name }}
+                    <div class="muted addr">{{ c.address }}</div>
+                  </td>
+                  <td>{{ c.phone }}</td>
+                  <td class="nowrap">
+                    <button class="btn sm" (click)="edit(c)">แก้ไข</button>
+                    <button class="btn sm danger" (click)="remove(c)">ลบ</button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4" class="muted">ไม่พบลูกค้า</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ขวา: แผนที่ -->
+  <section class="card map-card">
+    <app-map [pins]="pins()" [fitBounds]="draftPoint() === null" (pick)="onMapPick($event)" />
+  </section>
+</div>

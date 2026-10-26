@@ -1,0 +1,73 @@
+.head {
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.left {
+  display: grid;
+  gap: 16px;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.err {
+  color: var(--bad);
+}
+
+.search {
+  margin-bottom: 8px;
+}
+
+.table-wrap {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.addr {
+  font-size: 0.8rem;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.map-card {
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - 160px);
+  min-height: 420px;
+  position: sticky;
+  top: 16px;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-card {
+    position: static;
+    height: 360px;
+    order: -1;
+  }
+}
