@@ -91,8 +91,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     for (const p of pins) {
       bounds.push([p.lat, p.lng]);
       const cls = p.draft ? 'pin draft' : 'pin';
+      const style = p.color ? ` style="--c:${p.color}"` : ''; // ไม่ใส่สี = ใช้สีหลัก
       const marker = L.marker([p.lat, p.lng], {
-        icon: this.icon(`<div class="${cls}" style="--c:${p.color ?? ''}">${escapeHtml(p.label)}</div>`, 26),
+        icon: this.icon(`<div class="${cls}"${style}>${escapeHtml(p.label)}</div>`, 26),
       }).addTo(this.layer);
       if (p.tooltip) marker.bindTooltip(escapeHtml(p.tooltip));
     }

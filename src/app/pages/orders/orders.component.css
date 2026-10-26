@@ -1,0 +1,90 @@
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.date input {
+  width: auto;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+}
+
+.stat strong {
+  font-size: 1.4rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.left {
+  display: grid;
+  gap: 16px;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.boxes {
+  width: auto;
+  min-width: 96px;
+}
+
+.table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-wrap {
+  max-height: 440px;
+  overflow: auto;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.map-card {
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - 260px);
+  min-height: 420px;
+  position: sticky;
+  top: 16px;
+}
+
+@media (max-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-card {
+    position: static;
+    height: 340px;
+  }
+}
