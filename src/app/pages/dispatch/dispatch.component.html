@@ -23,6 +23,32 @@
   <div class="alert success">{{ success() }}</div>
 }
 
+
+<!-- ตั้งค่าการคำนวณ (กดที่หัวข้อเพื่อเปิด/ปิด) -->
+<details class="card settings">
+  <summary>ตั้งค่าการคำนวณ</summary>
+  <div class="settings-grid">
+    <label>ความเร็วไรเดอร์ (กม./ชม.)
+      <input type="number" min="1" [value]="draft().speed" (input)="patch('speed', +$any($event.target).value)" />
+    </label>
+    <label>ตัวคูณถนนคดเคี้ยว
+      <input type="number" min="1" step="0.1" [value]="draft().road" (input)="patch('road', +$any($event.target).value)" />
+    </label>
+    <label>เวลาจอดส่งต่อจุด (นาที)
+      <input type="number" min="0" [value]="draft().stopMin" (input)="patch('stopMin', +$any($event.target).value)" />
+    </label>
+    <label>เวลาออกจากร้าน
+      <input type="time" [value]="draft().depart" (input)="patch('depart', $any($event.target).value)" />
+    </label>
+    <label class="check">
+      <input type="checkbox" [checked]="draft().back" (change)="patch('back', $any($event.target).checked)" />
+      นับระยะขากลับร้านด้วย
+    </label>
+    <button class="btn primary" (click)="saveSetting()" [disabled]="busy()">บันทึกค่าตั้ง</button>
+  </div>
+  <p class="muted">ระยะทาง = ระยะเส้นตรง × ตัวคูณถนน · ค่าส่ง = 15 + 2 × กล่อง × กม. · บันทึกแล้วระบบจะคำนวณเส้นทางใหม่ให้</p>
+</details>
+
 @if (!routes().length) {
   <!-- ยังไม่ได้คำนวณ และยังไม่มีแผนที่ยืนยัน -->
   <div class="card">

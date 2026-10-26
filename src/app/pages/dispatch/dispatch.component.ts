@@ -41,9 +41,10 @@ export class DispatchComponent implements OnInit {
   busy = signal(false);
   error = signal('');
   success = signal('');
+  draft = signal<Setting>(DEFAULT_SETTING); // ค่าตั้งที่กำลังแก้ในฟอร์ม (ยังไม่บันทึก)
   roads = signal<Record<string, [number, number][]>>({}); // เส้นตามถนนจาก OSRM (key = จุดที่วิ่งผ่าน)
 
-  
+
   // ---- computed (คำนวณจาก state อัตโนมัติ) ----
   boxes = computed(() => this.orders().reduce((a, o) => a + o.boxes, 0));
 
@@ -67,7 +68,7 @@ export class DispatchComponent implements OnInit {
     ),
   );
 
-    // เส้นทาง: ใช้เส้นตามถนนถ้าโหลดมาแล้ว ไม่งั้นใช้เส้นตรงไปก่อน
+  // เส้นทาง: ใช้เส้นตามถนนถ้าโหลดมาแล้ว ไม่งั้นใช้เส้นตรงไปก่อน
   lines = computed<MapLine[]>(() =>
     this.routes().map((r) => {
       const pts = this.stopPoints(r);
@@ -106,11 +107,18 @@ export class DispatchComponent implements OnInit {
       next: (rows) => { this.orders.set(rows); this.loading.set(false); },
       error: (e: Error) => { this.error.set(e.message); this.loading.set(false); },
     });
-    this.settingApi.get().subscribe({ next: (s) => this.setting.set(s), error: () => {} }); // ไม่มี = ใช้ค่าเริ่มต้น
+    this.settingApi.get().subscribe({
+      next: (s) => {
+        const v = { ...s, speed: +s.speed, road: +s.road, stopMin: +s.stopMin }; // DECIMAL จาก MySQL มาเป็นข้อความ → แปลงเป็นตัวเลข
+        this.setting.set(v);
+        this.draft.set(v);
+      },
+      error: () => { }, // ไม่มี = ใช้ค่าเริ่มต้น
+    });
     this.planApi.getLatest().subscribe({ next: (p) => this.plan.set(p), error: () => this.plan.set(null) }); // 404 = ยังไม่มีแผน
   }
 
-  
+
   // ปุ่ม "จัดเส้นทาง" / "คำนวณใหม่" (seed ใหม่ทุกครั้ง → กดซ้ำ = ได้ทางเลือกชุดใหม่)
   run(): void {
     this.clearMessages();
@@ -153,5 +161,30 @@ export class DispatchComponent implements OnInit {
   private clearMessages(): void {
     this.error.set('');
     this.success.set('');
+  }
+
+  // แก้ค่าในฟอร์มทีละช่อง เช่น patch('speed', 25)
+  patch<K extends keyof Setting>(key: K, value: Setting[K]): void {
+    this.draft.update((d) => ({ ...d, [key]: value }));
+  }
+
+  // บันทึกค่าตั้งลง server แล้วคำนวณเส้นทางใหม่ด้วยค่าใหม่ (ถ้ากำลังดูผลคำนวณอยู่)
+  saveSetting(): void {
+    const d = this.draft();
+    this.clearMessages();
+    if (!(d.speed > 0) || !(d.road >= 1) || !Number.isInteger(d.stopMin) || d.stopMin < 0 || !d.depart) {
+      this.error.set('ค่าตั้งไม่ถูกต้อง: ความเร็ว > 0, ตัวคูณถนน ≥ 1, นาทีจอดเป็นจำนวนเต็ม ≥ 0 และต้องใส่เวลาออก');
+      return;
+    }
+    this.busy.set(true);
+    this.settingApi.update(d).subscribe({
+      next: () => {
+        this.setting.set(d);
+        this.busy.set(false);
+        if (this.solutions().length) this.run(); // คำนวณใหม่ให้เลย ตัวเลขจะได้ตรงกับค่าใหม่
+        this.success.set('บันทึกค่าตั้งแล้ว');
+      },
+      error: (e: Error) => { this.error.set(e.message); this.busy.set(false); },
+    });
   }
 }
