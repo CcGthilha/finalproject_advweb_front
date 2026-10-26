@@ -1,0 +1,163 @@
+/* หัวหน้า: ชื่อหน้าอยู่ซ้าย ปุ่มอยู่ขวา */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* การ์ดสรุป 7 ใบเรียงเป็นแถวเดียว */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+}
+
+.stat strong {
+  font-size: 1.15rem;
+}
+
+/* กำไร: เขียว / ติดลบ = แดง */
+.profit strong {
+  color: var(--ok);
+}
+
+.profit.neg strong {
+  color: var(--bad);
+}
+
+.alts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* รายการไรเดอร์อยู่ซ้าย แผนที่อยู่ขวา (แผนที่กว้างกว่า) */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.riders {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 200px);
+  overflow: auto; /* ไรเดอร์เยอะ = เลื่อนในกรอบ */
+}
+
+.rider {
+  padding: 12px 14px;
+}
+
+.rider-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* จุดสีประจำไรเดอร์ */
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.fee {
+  margin-left: auto; /* ดันค่าส่งไปชิดขวา */
+}
+
+ol {
+  margin: 6px 0 0;
+  padding-left: 22px;
+}
+
+li.late {
+  color: var(--bad); /* ถึงช้า = ตัวแดง */
+}
+
+li.done {
+  text-decoration: line-through; /* ส่งแล้ว = ขีดฆ่า */
+  opacity: 0.6;
+}
+
+.code {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.code b {
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+}
+
+/* แผนที่: สูงเกือบเต็มจอ และค้างอยู่ตอนเลื่อนรายการ */
+.map-card {
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - 200px);
+  min-height: 420px;
+  position: sticky;
+  top: 16px;
+}
+
+.confirm {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.confirm p {
+  margin: 0;
+}
+
+/* จอเล็กลง: การ์ดสรุปเหลือ 4 ใบต่อแถว */
+@media (max-width: 1100px) {
+  .stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* จอมือถือ: เรียงลงมาแถวเดียว แผนที่อยู่ล่าง */
+@media (max-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .riders {
+    max-height: none;
+  }
+
+  .map-card {
+    position: static;
+    height: 360px;
+  }
+}

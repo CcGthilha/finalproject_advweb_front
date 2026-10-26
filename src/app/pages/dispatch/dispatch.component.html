@@ -1,0 +1,114 @@
+<!-- ===== ส่วนที่ 1: หัวหน้า + ปุ่ม + ข้อความแจ้งเตือน ===== -->
+<div class="head">
+  <div>
+    <h1>จัดเส้นทาง</h1>
+    <p class="muted">
+      ออกจากร้าน {{ t(0) }} ต้องถึงทุกจุดก่อน {{ t(LIMIT_MIN) }} · ไรเดอร์คนละไม่เกิน {{ maxOrders }} ออเดอร์
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn primary" (click)="run()" [disabled]="loading() || busy()">
+      {{ solutions().length ? 'คำนวณใหม่' : 'จัดเส้นทาง' }}
+    </button>
+    @if (solutions().length && plan()) {
+      <button class="btn" (click)="solutions.set([])">ดูแผนที่ยืนยันแล้ว</button>
+    }
+  </div>
+</div>
+
+@if (error()) {
+  <div class="alert error">{{ error() }}</div>
+}
+@if (success()) {
+  <div class="alert success">{{ success() }}</div>
+}
+
+@if (!routes().length) {
+  <!-- ยังไม่ได้คำนวณ และยังไม่มีแผนที่ยืนยัน -->
+  <div class="card">
+    <h2>วันนี้มี {{ orders().length }} ออเดอร์ รวม {{ boxes() }} กล่อง</h2>
+    <p class="muted">กด "จัดเส้นทาง" ระบบจะแบ่งออเดอร์ให้ไรเดอร์ เรียงจุดส่ง และเลือกแบบที่ค่าส่งรวมต่ำสุดโดยยังส่งทันเวลา</p>
+  </div>
+}
+
+
+<!-- ===== ส่วนที่ 2: สถานะ + ตัวเลขสรุป + ทางเลือก ===== -->
+@if (routes().length) {
+  @if (sum().late) {
+    <div class="alert error">มี {{ sum().late }} จุดที่ถึงหลัง {{ t(LIMIT_MIN) }} กด "คำนวณใหม่" เพื่อหาทางเลือกอื่น</div>
+  } @else if (sum().profit < 0) {
+    <div class="alert error">แผนนี้ขาดทุน {{ -sum().profit | number: '1.0-0' }} ฿</div>
+  } @else if (!confirmed()) {
+    <div class="alert success">ส่งทันทุกจุด จุดสุดท้ายถึงประมาณ {{ t(sum().end) }}</div>
+  }
+
+  <div class="stats">
+    <div class="card stat"><span class="muted">ไรเดอร์</span><strong>{{ sum().riders }} คน</strong></div>
+    <div class="card stat"><span class="muted">ออเดอร์ / กล่อง</span><strong>{{ sum().orders }} / {{ sum().boxes }}</strong></div>
+    <div class="card stat"><span class="muted">ระยะรวม</span><strong>{{ sum().km | number: '1.1-1' }} กม.</strong></div>
+    <div class="card stat"><span class="muted">รายได้</span><strong>{{ sum().revenue | number: '1.0-0' }} ฿</strong></div>
+    <div class="card stat"><span class="muted">ค่าอาหาร</span><strong>{{ sum().food | number: '1.0-0' }} ฿</strong></div>
+    <div class="card stat"><span class="muted">ค่าส่ง</span><strong>{{ sum().fee | number: '1.2-2' }} ฿</strong></div>
+    <div class="card stat profit" [class.neg]="sum().profit < 0">
+      <span class="muted">กำไร</span><strong>{{ sum().profit | number: '1.2-2' }} ฿</strong>
+    </div>
+  </div>
+
+  @if (solutions().length > 1) {
+    <div class="alts">
+      @for (s of solutions(); track s.sig; let i = $index) {
+        <button class="btn sm" [class.primary]="i === sel()" (click)="sel.set(i)">
+          ทางเลือก {{ i + 1 }}{{ i === 0 ? ' (ดีสุด)' : '' }}
+        </button>
+      }
+    </div>
+  }
+}
+
+<!-- ===== ส่วนที่ 3: ใบงานไรเดอร์ + แผนที่ + ปุ่มยืนยัน ===== -->
+@if (routes().length) {
+  <div class="grid">
+    <section class="riders">
+      @for (r of routes(); track r.rider) {
+        <article class="card rider">
+          <div class="rider-head">
+            <i class="dot" [style.background]="r.color"></i>
+            <b>ไรเดอร์ {{ r.rider }}</b>
+            <span class="muted">{{ r.stops.length }} จุด · {{ r.boxes }} กล่อง · {{ r.km | number: '1.2-2' }} กม.</span>
+            <strong class="fee">{{ r.fee | number: '1.2-2' }} ฿</strong>
+          </div>
+          <ol>
+            @for (x of r.stops; track $index) {
+              <li [class.late]="x.at > LIMIT_MIN" [class.done]="x.done">
+                {{ x.name }} <span class="muted">· {{ x.boxes }} กล่อง · ถึง {{ t(x.at) }}</span>
+              </li>
+            }
+          </ol>
+          @if (r.code) {
+            <div class="code">
+              รหัสใบงาน <b>{{ r.code }}</b>
+              <a [routerLink]="['/rider']" [queryParams]="{ code: r.code }">เปิดหน้าไรเดอร์</a>
+              <span class="muted">ส่งแล้ว {{ doneCount(r) }}/{{ r.stops.length }}</span>
+            </div>
+          }
+        </article>
+      }
+    </section>
+
+    <section class="card map-card">
+      <app-map [pins]="pins()" [lines]="lines()" />
+    </section>
+  </div>
+
+  <div class="card confirm">
+    @if (confirmed()) {
+      <p>ยืนยันแผนแล้ว แจ้งรหัสใบงาน 4 หลักให้ไรเดอร์แต่ละคน</p>
+      <button class="btn" (click)="load()">รีเฟรชสถานะการส่ง</button>
+    } @else {
+      <p>พอใจกับเส้นทางนี้แล้ว กดยืนยันเพื่อออกรหัสใบงานให้ไรเดอร์</p>
+      <button class="btn primary" (click)="confirm()" [disabled]="busy() || sum().late > 0">
+        {{ busy() ? 'กำลังออกใบงาน…' : 'ยืนยันและออกใบงาน' }}
+      </button>
+    }
+  </div>
+}
