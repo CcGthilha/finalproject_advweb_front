@@ -1,0 +1,12 @@
+<header class="topbar">
+  <a routerLink="/" class="brand">🍱 ส่งด่วนมื้อเที่ยง</a>
+  <nav>
+    @for (m of menus; track m.path) {
+      <a [routerLink]="m.path" routerLinkActive="active">{{ m.label }}</a>
+    }
+  </nav>
+</header>
+
+<main class="content">
+  <router-outlet />
+</main>
