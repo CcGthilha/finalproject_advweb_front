@@ -1,11 +1,12 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Order } from '../../core/models/order.model';
 import { Plan, RouteRequest, StopRequest } from '../../core/models/plan.model';
 import { DEFAULT_SETTING, SHOP, Setting } from '../../core/models/setting.model';
 import { OrderService } from '../../core/services/order.service';
 import { PlanService } from '../../core/services/plan.service';
+import { RoadService } from '../../core/services/road.service';
 import { SettingService } from '../../core/services/setting.service';
 import { LIMIT_MIN, Solution, clock, optimize, summarize } from '../../core/utils/optimizer';
 import { MapComponent, MapLine, MapPin } from '../../shared/map/map.component';
@@ -25,6 +26,7 @@ export class DispatchComponent implements OnInit {
   private orderApi = inject(OrderService);
   private settingApi = inject(SettingService);
   private planApi = inject(PlanService);
+  private road = inject(RoadService);
 
   readonly LIMIT_MIN = LIMIT_MIN;
   readonly maxOrders = SHOP.maxOrdersPerRider;
@@ -39,6 +41,7 @@ export class DispatchComponent implements OnInit {
   busy = signal(false);
   error = signal('');
   success = signal('');
+  roads = signal<Record<string, [number, number][]>>({}); // เส้นตามถนนจาก OSRM (key = จุดที่วิ่งผ่าน)
 
   
   // ---- computed (คำนวณจาก state อัตโนมัติ) ----
@@ -64,14 +67,33 @@ export class DispatchComponent implements OnInit {
     ),
   );
 
-  // เส้นทาง: ร้าน → จุด 1 → จุด 2 → จุด 3 (และกลับร้านถ้าตั้ง back)
+    // เส้นทาง: ใช้เส้นตามถนนถ้าโหลดมาแล้ว ไม่งั้นใช้เส้นตรงไปก่อน
   lines = computed<MapLine[]>(() =>
     this.routes().map((r) => {
-      const shop: [number, number] = [SHOP.lat, SHOP.lng];
-      const pts = r.stops.map((x) => [x.lat, x.lng] as [number, number]);
-      return { color: r.color, points: [shop, ...pts, ...(this.setting().back ? [shop] : [])] };
+      const pts = this.stopPoints(r);
+      return { color: r.color, points: this.roads()[pts.join(';')] ?? pts };
     }),
   );
+
+  constructor() {
+    // ทุกครั้งที่ใบงานเปลี่ยน → ขอเส้นตามถนนทีละคัน (ไม่ยิงพร้อมกัน OSRM จะได้ไม่บล็อก)
+    effect(() => {
+      const all = this.routes().map((r) => this.stopPoints(r));
+      (async () => {
+        for (const pts of all) {
+          const line = await this.road.path(pts);
+          if (line) this.roads.update((m) => ({ ...m, [pts.join(';')]: line }));
+        }
+      })();
+    });
+  }
+
+  // จุดที่ไรเดอร์วิ่งผ่าน: ร้าน → จุด 1 → จุด 2 → จุด 3 (และกลับร้านถ้าตั้ง back)
+  private stopPoints(r: ViewRoute): [number, number][] {
+    const shop: [number, number] = [SHOP.lat, SHOP.lng];
+    const pts = r.stops.map((x) => [x.lat, x.lng] as [number, number]);
+    return [shop, ...pts, ...(this.setting().back ? [shop] : [])];
+  }
 
   ngOnInit(): void {
     this.load();
