@@ -8,7 +8,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) =>
     catchError((err: HttpErrorResponse) => {
       let message: string;
       if (err.status === 0) {
-        message = 'ติดต่อ server ไม่ได้ (เปิด backend ที่ port 3000 แล้วหรือยัง?)';
+        // status 0 = เบราว์เซอร์ไม่ได้รับคำตอบ: เน็ตหลุด / server ปิดอยู่ / CORS ไม่อนุญาตเว็บนี้
+        message = 'ติดต่อ server ไม่ได้ (server อาจกำลังเปิดเครื่อง หรือยังไม่ได้เพิ่ม URL เว็บนี้ใน CORS_ORIGINS)';
       } else if (err.error && typeof err.error.error === 'string') {
         message = err.error.error; // server ส่ง { error: "..." }
       } else {
