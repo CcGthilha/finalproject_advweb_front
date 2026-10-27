@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Customer, CustomerRequest } from '../../core/models/customer.model';
 import { CustomerService } from '../../core/services/customer.service';
+import { SettingService } from '../../core/services/setting.service';
 import { MapComponent, MapPin } from '../../shared/map/map.component';
 
 // หน้าจัดการลูกค้า: ดูรายชื่อ ค้นหา เพิ่ม แก้ ลบ และคลิกแผนที่เพื่อปักหมุดบ้าน
@@ -13,7 +14,10 @@ import { MapComponent, MapPin } from '../../shared/map/map.component';
 })
 export class CustomersComponent implements OnInit {
   private api = inject(CustomerService);
+  private settingApi = inject(SettingService);
   private fb = inject(FormBuilder);
+
+  readonly shop = this.settingApi.shop; // ใช้แสดงรัศมีให้บริการ
 
   // ---- state (signals) ----
   customers = signal<Customer[]>([]);
@@ -26,8 +30,7 @@ export class CustomersComponent implements OnInit {
 
   // ---- ฟอร์ม ----
   form = this.fb.nonNullable.group({
-    firstname: ['', Validators.required],
-    lastname: ['', Validators.required],
+    fullName: ['', Validators.required],
     phone: ['', [Validators.required, Validators.pattern(/^0\d{8,9}$/)]],
     address: [''],
     lat: [0, [Validators.required, Validators.min(-90), Validators.max(90)]],
@@ -37,13 +40,11 @@ export class CustomersComponent implements OnInit {
   // ตำแหน่งที่กำลังเลือกในฟอร์ม (ยังไม่บันทึก) อัปเดตตามการคลิกแผนที่
   draftPoint = signal<{ lat: number; lng: number } | null>(null);
 
-  // กรองรายชื่อตามคำค้นฝั่งหน้าจอ (ชื่อ/นามสกุล/เบอร์)
+  // กรองรายชื่อตามคำค้นฝั่งหน้าจอ (ชื่อ/เบอร์)
   filtered = computed(() => {
     const q = this.keyword().trim().toLowerCase();
     if (!q) return this.customers();
-    return this.customers().filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q),
-    );
+    return this.customers().filter((c) => c.fullName.toLowerCase().includes(q) || c.phone.includes(q));
   });
 
   // หมุดลูกค้าทุกคน + หมุดชั่วคราวของฟอร์ม
@@ -51,9 +52,9 @@ export class CustomersComponent implements OnInit {
     const pins: MapPin[] = this.filtered().map((c) => ({
       lat: c.lat,
       lng: c.lng,
-      label: String(c.id),
-      color: c.id === this.editingId() ? '#E53935' : undefined,
-      tooltip: `${c.name} (${c.phone})`,
+      label: String(c.customerId),
+      color: c.customerId === this.editingId() ? '#E53935' : undefined,
+      tooltip: `${c.fullName} (${c.phone})`,
     }));
     const p = this.draftPoint();
     if (p) pins.push({ ...p, label: '+', draft: true, tooltip: 'ตำแหน่งที่เลือก' });
@@ -61,6 +62,7 @@ export class CustomersComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.settingApi.get().subscribe({ error: () => {} }); // ไม่ได้ = ใช้ค่าเริ่มต้น
     this.load();
   }
 
@@ -88,10 +90,9 @@ export class CustomersComponent implements OnInit {
 
   edit(c: Customer): void {
     this.clearMessages();
-    this.editingId.set(c.id);
+    this.editingId.set(c.customerId);
     this.form.setValue({
-      firstname: c.firstname,
-      lastname: c.lastname,
+      fullName: c.fullName,
       phone: c.phone,
       address: c.address ?? '',
       lat: c.lat,
@@ -116,7 +117,8 @@ export class CustomersComponent implements OnInit {
       this.error.set('กรุณาคลิกบนแผนที่เพื่อปักหมุดบ้านลูกค้า');
       return;
     }
-    const body: CustomerRequest = this.form.getRawValue();
+    const v = this.form.getRawValue();
+    const body: CustomerRequest = { ...v, fullName: v.fullName.trim(), address: v.address.trim() || null };
     const id = this.editingId();
     const req$ = id === null ? this.api.create(body) : this.api.update(id, body);
 
@@ -129,19 +131,19 @@ export class CustomersComponent implements OnInit {
         this.load();
       },
       error: (e: Error) => {
-        this.error.set(e.message); // เช่น 409 เบอร์โทรนี้มีอยู่แล้ว
+        this.error.set(e.message); // เช่น เบอร์ซ้ำ (409) หรืออยู่นอกรัศมีให้บริการ (400)
         this.saving.set(false);
       },
     });
   }
 
   remove(c: Customer): void {
-    if (!confirm(`ลบ "${c.name}" ?\nออเดอร์ของลูกค้าคนนี้จะถูกลบด้วย`)) return;
+    if (!confirm(`ลบ "${c.fullName}" ?\nออเดอร์เก่ายังเก็บไว้ แต่จะสั่งใหม่ไม่ได้`)) return;
     this.clearMessages();
-    this.api.delete(c.id).subscribe({
+    this.api.delete(c.customerId).subscribe({
       next: () => {
-        this.success.set(`ลบ ${c.name} แล้ว`);
-        if (this.editingId() === c.id) this.resetForm();
+        this.success.set(`ลบ ${c.fullName} แล้ว`);
+        if (this.editingId() === c.customerId) this.resetForm();
         this.load();
       },
       error: (e: Error) => this.error.set(e.message),

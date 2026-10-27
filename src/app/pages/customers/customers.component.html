@@ -1,7 +1,10 @@
 <div class="head">
   <div>
     <h1>จัดการลูกค้า</h1>
-    <p class="muted">ทั้งหมด {{ customers().length }} คน · คลิกบนแผนที่เพื่อปักหมุดบ้านลูกค้า</p>
+    <p class="muted">
+      ทั้งหมด {{ customers().length }} คน · คลิกบนแผนที่เพื่อปักหมุดบ้านลูกค้า (รับเฉพาะในรัศมี
+      {{ shop().serviceRadiusKm }} กม. จากร้าน)
+    </p>
   </div>
 </div>
 
@@ -18,21 +21,12 @@
     <form class="card form" [formGroup]="form" (ngSubmit)="save()">
       <h2>{{ editingId() === null ? 'เพิ่มลูกค้าใหม่' : 'แก้ไขลูกค้า #' + editingId() }}</h2>
 
-      <div class="row">
-        <div>
-          <label for="firstname">ชื่อ</label>
-          <input id="firstname" formControlName="firstname" />
-          @if (invalid('firstname')) {
-            <small class="err">กรุณากรอกชื่อ</small>
-          }
-        </div>
-        <div>
-          <label for="lastname">นามสกุล</label>
-          <input id="lastname" formControlName="lastname" />
-          @if (invalid('lastname')) {
-            <small class="err">กรุณากรอกนามสกุล</small>
-          }
-        </div>
+      <div>
+        <label for="fullName">ชื่อ-นามสกุล / ชื่อหน่วยงาน</label>
+        <input id="fullName" formControlName="fullName" />
+        @if (invalid('fullName')) {
+          <small class="err">กรุณากรอกชื่อ</small>
+        }
       </div>
 
       <div>
@@ -91,11 +85,11 @@
               </tr>
             </thead>
             <tbody>
-              @for (c of filtered(); track c.id) {
-                <tr [class.selected]="c.id === editingId()">
-                  <td>{{ c.id }}</td>
+              @for (c of filtered(); track c.customerId) {
+                <tr [class.selected]="c.customerId === editingId()">
+                  <td>{{ c.customerId }}</td>
                   <td>
-                    {{ c.name }}
+                    {{ c.fullName }}
                     <div class="muted addr">{{ c.address }}</div>
                   </td>
                   <td>{{ c.phone }}</td>

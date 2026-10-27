@@ -1,7 +1,10 @@
 <div class="head">
   <div>
     <h1>จัดการออเดอร์</h1>
-    <p class="muted">ออเดอร์ละ 1-3 กล่อง · ไรเดอร์ออกจากร้าน 11:30 ต้องถึงก่อน 12:30</p>
+    <p class="muted">
+      ออเดอร์ละ 1-{{ shop().maxBoxesPerOrder }} กล่อง · ไรเดอร์ออกจากร้าน {{ shop().dispatchTime }} ต้องถึงก่อน
+      {{ shop().deadlineTime }} · แก้/ลบได้เฉพาะออเดอร์ที่ยัง "รอจัดส่ง"
+    </p>
   </div>
   <div class="date">
     <label for="date">วันที่ส่ง</label>
@@ -25,36 +28,36 @@
     <span class="muted">กล่องทั้งหมด</span><strong>{{ summary().boxes }}</strong>
   </div>
   <div class="card stat">
-    <span class="muted">รายได้ (×65)</span><strong>{{ summary().revenue | number }} ฿</strong>
+    <span class="muted">รายได้ (×{{ shop().boxPrice }})</span><strong>{{ summary().revenue | number }} ฿</strong>
   </div>
   <div class="card stat">
-    <span class="muted">ค่าอาหาร (×40)</span><strong>{{ summary().foodCost | number }} ฿</strong>
+    <span class="muted">ค่าอาหาร (×{{ shop().boxCost }})</span><strong>{{ summary().foodCost | number }} ฿</strong>
   </div>
 </div>
 
 <div class="grid">
   <section class="left">
-    @if (isToday()) {
-      <!-- เพิ่มออเดอร์ (server รับเฉพาะวันนี้) -->
-      <form class="card add" [formGroup]="addForm" (ngSubmit)="add()">
-        <h2>เพิ่มออเดอร์</h2>
-        <div class="add-row">
-          <select formControlName="customerId" aria-label="ลูกค้า">
-            <option [ngValue]="0" disabled>-- เลือกลูกค้า --</option>
-            @for (c of availableCustomers(); track c.id) {
-              <option [ngValue]="c.id">{{ c.name }} ({{ c.phone }})</option>
-            }
-          </select>
-          <select formControlName="boxes" aria-label="จำนวนกล่อง" class="boxes">
-            @for (b of boxOptions; track b) {
-              <option [ngValue]="b">{{ b }} กล่อง</option>
-            }
-          </select>
-          <button class="btn primary" type="submit" [disabled]="busy()">เพิ่ม</button>
-        </div>
-      </form>
+    <!-- เพิ่มออเดอร์ของวันที่เลือก -->
+    <form class="card add" [formGroup]="addForm" (ngSubmit)="add()">
+      <h2>เพิ่มออเดอร์วันที่ {{ date() }}</h2>
+      <div class="add-row">
+        <select formControlName="customerId" aria-label="ลูกค้า">
+          <option [ngValue]="0" disabled>-- เลือกลูกค้า --</option>
+          @for (c of availableCustomers(); track c.customerId) {
+            <option [ngValue]="c.customerId">{{ c.fullName }} ({{ c.phone }})</option>
+          }
+        </select>
+        <select formControlName="quantity" aria-label="จำนวนกล่อง" class="boxes">
+          @for (b of boxOptions(); track b) {
+            <option [ngValue]="b">{{ b }} กล่อง</option>
+          }
+        </select>
+        <button class="btn primary" type="submit" [disabled]="busy()">เพิ่ม</button>
+      </div>
+    </form>
 
-      <!-- จำลองออเดอร์ -->
+    @if (isToday()) {
+      <!-- จำลองออเดอร์ (server สุ่มให้เฉพาะวันนี้) -->
       <div class="card sim">
         <h2>จำลองลูกค้าสั่งพร้อมกัน</h2>
         <p class="muted">ล้างออเดอร์วันนี้ แล้วสุ่มลูกค้า (ไม่ซ้ำ) สั่ง 1-3 กล่อง · เว้นว่าง = สุ่ม 20-30 ออเดอร์</p>
@@ -70,8 +73,6 @@
           <button class="btn primary" (click)="simulate()" [disabled]="busy()">จำลอง</button>
         </div>
       </div>
-    } @else {
-      <div class="card muted">ดูย้อนหลังได้อย่างเดียว เพิ่ม/จำลองออเดอร์ได้เฉพาะวันนี้ ({{ today }})</div>
     }
 
     <!-- ตารางออเดอร์ -->
@@ -91,37 +92,49 @@
                 <th>#</th>
                 <th>ลูกค้า</th>
                 <th>กล่อง</th>
+                <th>สถานะ</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              @for (o of orders(); track o.id) {
+              @for (o of orders(); track o.orderId) {
                 <tr>
-                  <td>{{ o.id }}</td>
+                  <td>{{ o.orderId }}</td>
                   <td>
-                    {{ o.name }}
+                    {{ o.customerName }}
+                    @if (o.isSimulated) {
+                      <span class="tag">จำลอง</span>
+                    }
                     <div class="muted small">{{ o.phone }} · {{ o.address }}</div>
                   </td>
                   <td>
-                    <select
-                      class="boxes"
-                      [value]="o.boxes"
-                      [disabled]="busy()"
-                      (change)="changeBoxes(o, $any($event.target).value)"
-                      aria-label="จำนวนกล่อง"
-                    >
-                      @for (b of boxOptions; track b) {
-                        <option [value]="b" [selected]="b === o.boxes">{{ b }}</option>
-                      }
-                    </select>
+                    @if (o.status === 'PENDING') {
+                      <select
+                        class="boxes"
+                        [disabled]="busy()"
+                        (change)="changeQuantity(o, $any($event.target).value)"
+                        aria-label="จำนวนกล่อง"
+                      >
+                        @for (b of boxOptions(); track b) {
+                          <option [value]="b" [selected]="b === o.quantity">{{ b }}</option>
+                        }
+                      </select>
+                    } @else {
+                      {{ o.quantity }}
+                    }
                   </td>
                   <td>
-                    <button class="btn sm danger" (click)="remove(o)" [disabled]="busy()">ลบ</button>
+                    <span class="status" [attr.data-s]="o.status">{{ statusLabel[o.status] }}</span>
+                  </td>
+                  <td>
+                    @if (o.status === 'PENDING') {
+                      <button class="btn sm danger" (click)="remove(o)" [disabled]="busy()">ลบ</button>
+                    }
                   </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4" class="muted">ยังไม่มีออเดอร์ของวันนี้</td>
+                  <td colspan="5" class="muted">ยังไม่มีออเดอร์ของวันนี้</td>
                 </tr>
               }
             </tbody>

@@ -1,0 +1,9 @@
+{
+  "/api": {
+    "target": "https://finalproject-advweb.onrender.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/api": "" },
+    "headers": { "Origin": "" }
+  }
+}

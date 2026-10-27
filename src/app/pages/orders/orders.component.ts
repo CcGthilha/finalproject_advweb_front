@@ -1,11 +1,13 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { WriteResult } from '../../core/models/api.model';
 import { Customer } from '../../core/models/customer.model';
-import { MAX_BOXES_PER_ORDER, MIN_BOXES, Order } from '../../core/models/order.model';
-import { SHOP } from '../../core/models/setting.model';
+import { MAX_BOXES_PER_ORDER, MIN_BOXES, ORDER_STATUS_LABEL, Order } from '../../core/models/order.model';
 import { CustomerService } from '../../core/services/customer.service';
 import { OrderService } from '../../core/services/order.service';
+import { SettingService } from '../../core/services/setting.service';
 import { todayBangkok } from '../../core/utils/date';
 import { MapComponent, MapPin } from '../../shared/map/map.component';
 
@@ -19,12 +21,11 @@ import { MapComponent, MapPin } from '../../shared/map/map.component';
 export class OrdersComponent implements OnInit {
   private orderApi = inject(OrderService);
   private customerApi = inject(CustomerService);
+  private settingApi = inject(SettingService);
   private fb = inject(FormBuilder);
 
-  readonly boxOptions = Array.from(
-    { length: MAX_BOXES_PER_ORDER - MIN_BOXES + 1 },
-    (_, i) => MIN_BOXES + i,
-  ); // [1, 2, 3]
+  readonly shop = this.settingApi.shop;
+  readonly statusLabel = ORDER_STATUS_LABEL;
   readonly today = todayBangkok();
 
   // ---- state ----
@@ -35,23 +36,30 @@ export class OrdersComponent implements OnInit {
   busy = signal(false); // กำลังส่งคำสั่งเขียนข้อมูล
   error = signal('');
   success = signal('');
+  simulateCount = signal<number | null>(null);
 
   isToday = computed(() => this.date() === this.today);
 
-  // server เพิ่มออเดอร์ได้เฉพาะวันนี้ → ลูกค้าที่สั่งแล้วไม่ต้องให้เลือกซ้ำ
-  availableCustomers = computed(() => {
-    const ordered = new Set(this.orders().map((o) => o.customerId));
-    return this.customers().filter((c) => !ordered.has(c.id));
+  // ตัวเลือกจำนวนกล่อง [1..maxBoxesPerOrder] ตามค่าตั้งของร้าน
+  boxOptions = computed(() => {
+    const max = Math.min(MAX_BOXES_PER_ORDER, this.shop().maxBoxesPerOrder);
+    return Array.from({ length: max - MIN_BOXES + 1 }, (_, i) => MIN_BOXES + i);
   });
 
-  // สรุปยอดของวัน (ยังไม่รวมค่าส่ง — ค่าส่งคำนวณในหน้า dispatch)
+  // ลูกค้าที่ยังไม่มีออเดอร์ในวันนั้น (กันสั่งซ้ำ)
+  availableCustomers = computed(() => {
+    const ordered = new Set(this.orders().map((o) => o.customerId));
+    return this.customers().filter((c) => !ordered.has(c.customerId));
+  });
+
+  // สรุปยอดของวัน (ค่าส่งคำนวณในหน้า dispatch)
   summary = computed(() => {
-    const boxes = this.orders().reduce((sum, o) => sum + o.boxes, 0);
+    const boxes = this.orders().reduce((sum, o) => sum + o.quantity, 0);
     return {
       orders: this.orders().length,
       boxes,
-      revenue: boxes * SHOP.boxPrice,
-      foodCost: boxes * SHOP.boxCost,
+      revenue: boxes * this.shop().boxPrice,
+      foodCost: boxes * this.shop().boxCost,
     };
   });
 
@@ -59,19 +67,18 @@ export class OrdersComponent implements OnInit {
     this.orders().map((o) => ({
       lat: o.lat,
       lng: o.lng,
-      label: String(o.boxes),
-      tooltip: `#${o.id} ${o.name} · ${o.boxes} กล่อง`,
+      label: String(o.quantity),
+      tooltip: `#${o.orderId} ${o.customerName} · ${o.quantity} กล่อง`,
     })),
   );
 
   addForm = this.fb.nonNullable.group({
     customerId: [0, [Validators.required, Validators.min(1)]],
-    boxes: [1, [Validators.required, Validators.min(MIN_BOXES), Validators.max(MAX_BOXES_PER_ORDER)]],
+    quantity: [1, [Validators.required, Validators.min(MIN_BOXES), Validators.max(MAX_BOXES_PER_ORDER)]],
   });
 
-  simulateCount = signal<number | null>(null);
-
   ngOnInit(): void {
+    this.settingApi.get().subscribe({ error: () => {} });
     this.customerApi.getAll().subscribe({
       next: (rows) => this.customers.set(rows),
       error: (e: Error) => this.error.set(e.message),
@@ -106,27 +113,29 @@ export class OrdersComponent implements OnInit {
       this.error.set('กรุณาเลือกลูกค้าและจำนวนกล่อง');
       return;
     }
-    const { customerId, boxes } = this.addForm.getRawValue();
-    this.run(this.orderApi.create({ customerId: +customerId, boxes: +boxes }), 'เพิ่มออเดอร์แล้ว', () =>
-      this.addForm.reset(),
+    const { customerId, quantity } = this.addForm.getRawValue();
+    this.run(
+      this.orderApi.create({ customerId: +customerId, quantity: +quantity, deliveryDate: this.date() }),
+      'เพิ่มออเดอร์แล้ว',
+      () => this.addForm.reset(),
     );
   }
 
-  changeBoxes(o: Order, value: string): void {
-    const boxes = +value;
-    if (boxes === o.boxes) return;
+  changeQuantity(o: Order, value: string): void {
+    const quantity = +value;
+    if (quantity === o.quantity) return;
     this.clearMessages();
-    this.run(this.orderApi.updateBoxes(o.id, boxes), `แก้ออเดอร์ #${o.id} เป็น ${boxes} กล่องแล้ว`);
+    this.run(this.orderApi.update(o.orderId, { quantity }), `แก้ออเดอร์ #${o.orderId} เป็น ${quantity} กล่องแล้ว`);
   }
 
   remove(o: Order): void {
-    if (!confirm(`ลบออเดอร์ #${o.id} ของ ${o.name} ?`)) return;
+    if (!confirm(`ลบออเดอร์ #${o.orderId} ของ ${o.customerName} ?`)) return;
     this.clearMessages();
-    this.run(this.orderApi.delete(o.id), `ลบออเดอร์ #${o.id} แล้ว`);
+    this.run(this.orderApi.delete(o.orderId), `ลบออเดอร์ #${o.orderId} แล้ว`);
   }
 
   clearAll(): void {
-    if (!confirm(`ล้างออเดอร์ทั้งหมดของวันที่ ${this.date()} ?`)) return;
+    if (!confirm(`ล้างออเดอร์ทั้งหมดของวันที่ ${this.date()} ?\nแผนที่เลือกไว้ของวันนั้นจะถูกยกเลิกด้วย`)) return;
     this.clearMessages();
     this.run(this.orderApi.clear(this.date()), 'ล้างออเดอร์ทั้งหมดแล้ว');
   }
@@ -141,7 +150,7 @@ export class OrdersComponent implements OnInit {
   }
 
   // ส่งคำสั่งเขียนข้อมูล แล้วโหลดตารางใหม่
-  private run(req$: ReturnType<OrderService['delete']>, okMessage: string, after?: () => void): void {
+  private run(req$: Observable<WriteResult>, okMessage: string, after?: () => void): void {
     this.busy.set(true);
     req$.subscribe({
       next: () => {
@@ -151,7 +160,7 @@ export class OrdersComponent implements OnInit {
         this.load();
       },
       error: (e: Error) => {
-        this.error.set(e.message);
+        this.error.set(e.message); // เช่น ออเดอร์สถานะ ASSIGNED แก้ไขไม่ได้ (409)
         this.busy.set(false);
         this.load(); // คืนค่าในตารางให้ตรงกับ server
       },

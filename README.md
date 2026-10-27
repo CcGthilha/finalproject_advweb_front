@@ -1,23 +1,23 @@
 # final_project — Frontend ระบบจัดเส้นทางไรเดอร์ (ส่งด่วนมื้อเที่ยง)
 
 Angular 19 (standalone + signals) + Leaflet/OpenStreetMap
-เรียก Web API จาก backend (`server/` ของ FinalProject_AdvWeb) ที่ `http://localhost:3000`
+Backend: https://github.com/CcGthilha/avdweb_backend · API: https://finalproject-advweb.onrender.com
 
 ## รัน
 
 ```bash
 npm install
-npm start        # http://localhost:4200  (ต้องเปิด backend ที่ port 3000 ก่อน)
-npm run build
+npm start        # http://localhost:4200 (เรียก API ผ่าน proxy.conf.json → Render)
+npm run build    # เรียก Render ตรง ๆ (ต้องเพิ่ม URL ของเว็บใน CORS_ORIGINS ของ backend)
 ```
 
 ## หน้าจอ
 
-| path | หน้า | สถานะ |
-|---|---|---|
-| `/customers` | จัดการลูกค้า เพิ่ม/แก้/ลบ/ค้นหา ปักหมุดบนแผนที่ | ✅ เสร็จ |
-| `/orders` | จัดการออเดอร์ เพิ่ม/แก้จำนวนกล่อง/ลบ/ล้าง/จำลอง | ✅ เสร็จ |
-| `/dispatch` | จัดเส้นทาง แผนที่แยกสี สรุปกำไร ยืนยันออกใบงาน | ⬜ รอทำ |
-| `/rider` | ไรเดอร์กรอกรหัสใบงาน ดูลำดับจุดส่ง นำทาง | ⬜ รอทำ |
+| path | หน้า |
+|---|---|
+| `/customers` | จัดการลูกค้า เพิ่ม/แก้/ลบ/ค้นหา ปักหมุดบนแผนที่ |
+| `/orders` | จัดการออเดอร์ เพิ่ม/แก้จำนวนกล่อง/ลบ/ล้าง/จำลอง แสดงสถานะ |
+| `/dispatch` | จัดเส้นทาง แผนที่แยกสี สรุปกำไร บันทึกเวอร์ชัน เทียบแผน เลือกใช้ ออกเลขใบงาน |
+| `/rider` | ไรเดอร์กรอกเลขใบงาน ดูลำดับจุดส่ง นำทาง โทร กดส่งแล้ว |
 
-อธิบายโค้ดทั้งหมด + สิ่งที่เหลือให้ทำต่อ: [docs/CODE_EXPLANATION.md](docs/CODE_EXPLANATION.md)
+อธิบายโค้ดทั้งหมด: [docs/CODE_EXPLANATION.md](docs/CODE_EXPLANATION.md)

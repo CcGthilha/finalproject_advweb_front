@@ -1,14 +1,14 @@
-@if (!route()) {
-  <!-- ===== ยังไม่ได้เปิดใบงาน: ช่องกรอกรหัส ===== -->
+@if (!trip()) {
+  <!-- ===== ยังไม่ได้เปิดใบงาน: ช่องกรอกเลขใบงาน ===== -->
   <form class="card login" (submit)="open(); $event.preventDefault()">
     <h1>ใบงานไรเดอร์</h1>
-    <p class="muted">กรอกรหัสใบงาน 4 หลักที่ได้จากร้าน</p>
+    <p class="muted">กรอกเลขใบงานที่ได้จากร้าน</p>
     <input
       class="code-input"
-      inputmode="numeric"
-      maxlength="4"
-      placeholder="เช่น 5098"
-      aria-label="รหัสใบงาน"
+      autocapitalize="characters"
+      maxlength="20"
+      placeholder="เช่น J26102702-01"
+      aria-label="เลขใบงาน"
       [value]="code()"
       (input)="code.set($any($event.target).value)"
     />
@@ -21,48 +21,48 @@
   </form>
 } @else {
   <!-- ===== เปิดใบงานแล้ว ===== -->
-  @let r = route()!;
+  @let t = trip()!;
   <div class="sheet">
     <div class="top">
       <div>
-        <h1><i class="dot" [style.background]="r.color"></i> ไรเดอร์ {{ r.rider }}</h1>
-        <p class="muted">รหัสใบงาน {{ r.code }}</p>
+        <h1><i class="dot" [style.background]="t.routeColor"></i> {{ t.riderName }}</h1>
+        <p class="muted">เลขใบงาน {{ t.jobCode }}{{ t.plateNo ? ' · ' + t.plateNo : '' }}</p>
       </div>
-      <button class="btn sm" (click)="close()">เปลี่ยนรหัส</button>
+      <button class="btn sm" (click)="close()">เปลี่ยนใบงาน</button>
     </div>
 
     <div class="card pick">
-      หยิบข้าวกล่อง <b>{{ r.boxes }} กล่อง</b> ไปส่ง {{ r.stops.length }} จุด
-      <span class="muted">ออก {{ t(0) }} · ต้องถึงทุกจุดก่อน {{ t(LIMIT_MIN) }}</span>
+      หยิบข้าวกล่อง <b>{{ t.boxCount }} กล่อง</b> ไปส่ง {{ t.stops.length }} จุด
+      <span class="muted">ออก {{ t.departTime }} · คาดว่าเสร็จ {{ t.estFinishTime }} · ต้องถึงทุกจุดก่อน {{ shop().deadlineTime }}</span>
     </div>
 
-    <a class="btn primary block" [href]="navAll(r)" target="_blank" rel="noopener">เปิดเส้นทางทั้งหมดใน Google Maps</a>
+    <a class="btn primary block" [href]="navAll(t)" target="_blank" rel="noopener">เปิดเส้นทางทั้งหมดใน Google Maps</a>
 
     @if (error()) {
       <div class="alert error">{{ error() }}</div>
     }
 
-    <p class="progress">ส่งแล้ว {{ done() }} / {{ r.stops.length }} จุด</p>
+    <p class="progress">ส่งแล้ว {{ done() }} / {{ t.stops.length }} จุด</p>
 
-    @for (s of r.stops; track s.seq) {
-      <article class="card stop" [class.done]="s.done">
-        <div class="no" [style.background]="r.color">{{ s.seq }}</div>
+    @for (s of t.stops; track s.stopSeq) {
+      <article class="card stop" [class.done]="!!s.deliveredAt">
+        <div class="no" [style.background]="t.routeColor">{{ s.stopSeq }}</div>
         <div class="info">
-          <b>{{ s.name }}</b>
+          <b>{{ s.customerName }}</b>
           <p class="muted">{{ s.address }}</p>
-          <p>{{ s.boxes }} กล่อง · ถึงประมาณ {{ t(s.at) }}</p>
+          <p>{{ s.quantity }} กล่อง · ถึงประมาณ {{ s.eta }}</p>
         </div>
         <div class="acts">
-          <a class="btn sm" [href]="nav(s)" target="_blank" rel="noopener">นำทาง</a>
+          <a class="btn sm" [href]="s.navUrl" target="_blank" rel="noopener">นำทาง</a>
           <a class="btn sm" [href]="'tel:' + s.phone">โทร</a>
-          <button class="btn sm" [class.primary]="!s.done" (click)="toggle(s)" [disabled]="busy()">
-            {{ s.done ? 'ยกเลิก' : 'ส่งแล้ว' }}
+          <button class="btn sm" [class.primary]="!s.deliveredAt" (click)="toggle(s)" [disabled]="busy()">
+            {{ s.deliveredAt ? 'ยกเลิก' : 'ส่งแล้ว' }}
           </button>
         </div>
       </article>
     }
 
-    @if (done() === r.stops.length) {
+    @if (done() === t.stops.length) {
       <div class="alert success">ส่งครบทุกจุดแล้ว 🎉 กลับร้านได้เลย</div>
     }
   </div>

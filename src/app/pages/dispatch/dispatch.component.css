@@ -194,3 +194,19 @@ li.done {
     height: 360px;
   }
 }
+/* ===== ตารางเทียบเวอร์ชัน ===== */
+.versions {
+  margin-top: 16px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.versions .neg {
+  color: var(--bad);
+}
+
+.nowrap {
+  white-space: nowrap;
+}

@@ -3,7 +3,8 @@
   <div>
     <h1>จัดเส้นทาง</h1>
     <p class="muted">
-      ออกจากร้าน {{ t(0) }} ต้องถึงทุกจุดก่อน {{ t(LIMIT_MIN) }} · ไรเดอร์คนละไม่เกิน {{ maxOrders }} ออเดอร์
+      ออกจากร้าน {{ shop().dispatchTime }} ต้องถึงทุกจุดก่อน {{ shop().deadlineTime }} · ไรเดอร์คนละไม่เกิน
+      {{ shop().maxOrdersPerRider }} ออเดอร์ · มีไรเดอร์ {{ riders().length }} คน
     </p>
   </div>
   <div class="actions">
@@ -11,7 +12,7 @@
       {{ solutions().length ? 'คำนวณใหม่' : 'จัดเส้นทาง' }}
     </button>
     @if (solutions().length && plan()) {
-      <button class="btn" (click)="solutions.set([])">ดูแผนที่ยืนยันแล้ว</button>
+      <button class="btn" (click)="solutions.set([])">ดูแผนที่บันทึกแล้ว</button>
     }
   </div>
 </div>
@@ -23,7 +24,6 @@
   <div class="alert success">{{ success() }}</div>
 }
 
-
 <!-- ตั้งค่าการคำนวณ (กดที่หัวข้อเพื่อเปิด/ปิด) -->
 <details class="card settings">
   <summary>ตั้งค่าการคำนวณ</summary>
@@ -31,14 +31,17 @@
     <label>ความเร็วไรเดอร์ (กม./ชม.)
       <input type="number" min="1" [value]="draft().speed" (input)="patch('speed', +$any($event.target).value)" />
     </label>
+    <label>เวลาออกจากร้าน
+      <input type="time" [value]="draft().depart" (input)="patch('depart', $any($event.target).value)" />
+    </label>
+    <label>ต้องถึงทุกจุดก่อน
+      <input type="time" [value]="draft().deadline" (input)="patch('deadline', $any($event.target).value)" />
+    </label>
     <label>ตัวคูณถนนคดเคี้ยว
       <input type="number" min="1" step="0.1" [value]="draft().road" (input)="patch('road', +$any($event.target).value)" />
     </label>
     <label>เวลาจอดส่งต่อจุด (นาที)
       <input type="number" min="0" [value]="draft().stopMin" (input)="patch('stopMin', +$any($event.target).value)" />
-    </label>
-    <label>เวลาออกจากร้าน
-      <input type="time" [value]="draft().depart" (input)="patch('depart', $any($event.target).value)" />
     </label>
     <label class="check">
       <input type="checkbox" [checked]="draft().back" (change)="patch('back', $any($event.target).checked)" />
@@ -46,43 +49,50 @@
     </label>
     <button class="btn primary" (click)="saveSetting()" [disabled]="busy()">บันทึกค่าตั้ง</button>
   </div>
-  <p class="muted">ระยะทาง = ระยะเส้นตรง × ตัวคูณถนน · ค่าส่ง = 15 + 2 × กล่อง × กม. · บันทึกแล้วระบบจะคำนวณเส้นทางใหม่ให้</p>
+  <p class="muted">
+    ระยะทาง = ระยะเส้นตรง × ตัวคูณถนน · ค่าส่ง = {{ shop().riderBaseFee }} + {{ shop().riderRatePerKmBox }} × กล่อง × กม. ·
+    ความเร็วและเวลาบันทึกที่ร้าน (server) ส่วนตัวคูณถนน/เวลาจอด/ขากลับ จำไว้ในเครื่องนี้
+  </p>
 </details>
 
-@if (!routes().length) {
-  <!-- ยังไม่ได้คำนวณ และยังไม่มีแผนที่ยืนยัน -->
+@if (!trips().length) {
+  <!-- ยังไม่ได้คำนวณ และยังไม่มีแผน -->
   <div class="card">
-    <h2>วันนี้มี {{ orders().length }} ออเดอร์ รวม {{ boxes() }} กล่อง</h2>
+    <h2>วันนี้มี {{ plannable().length }} ออเดอร์ที่จัดส่งได้ รวม {{ boxes() }} กล่อง</h2>
     <p class="muted">กด "จัดเส้นทาง" ระบบจะแบ่งออเดอร์ให้ไรเดอร์ เรียงจุดส่ง และเลือกแบบที่ค่าส่งรวมต่ำสุดโดยยังส่งทันเวลา</p>
   </div>
 }
 
-
 <!-- ===== ส่วนที่ 2: สถานะ + ตัวเลขสรุป + ทางเลือก ===== -->
-@if (routes().length) {
-  @if (sum().late) {
-    <div class="alert error">มี {{ sum().late }} จุดที่ถึงหลัง {{ t(LIMIT_MIN) }} กด "คำนวณใหม่" เพื่อหาทางเลือกอื่น</div>
-  } @else if (sum().profit < 0) {
-    <div class="alert error">แผนนี้ขาดทุน {{ -sum().profit | number: '1.0-0' }} ฿</div>
-  } @else if (!confirmed()) {
-    <div class="alert success">ส่งทันทุกจุด จุดสุดท้ายถึงประมาณ {{ t(sum().end) }}</div>
+@if (trips().length && sum(); as s) {
+  @if (viewingPlan()) {
+    <div class="alert" [class.success]="plan()!.status === 'SELECTED'">
+      กำลังดูแผนเวอร์ชัน {{ plan()!.versionNo }} ({{ plan()!.status === 'SELECTED' ? 'เลือกใช้อยู่' : plan()!.status }})
+    </div>
+  }
+  @if (s.late) {
+    <div class="alert error">มี {{ s.late }} จุดที่ถึงหลัง {{ shop().deadlineTime }} กด "คำนวณใหม่" เพื่อหาทางเลือกอื่น</div>
+  } @else if (s.profit < 0) {
+    <div class="alert error">แผนนี้ขาดทุน {{ -s.profit | number: '1.0-0' }} ฿</div>
+  } @else if (!viewingPlan()) {
+    <div class="alert success">ส่งทันทุกจุด จุดสุดท้ายถึงประมาณ {{ t(s.end) }}</div>
   }
 
   <div class="stats">
-    <div class="card stat"><span class="muted">ไรเดอร์</span><strong>{{ sum().riders }} คน</strong></div>
-    <div class="card stat"><span class="muted">ออเดอร์ / กล่อง</span><strong>{{ sum().orders }} / {{ sum().boxes }}</strong></div>
-    <div class="card stat"><span class="muted">ระยะรวม</span><strong>{{ sum().km | number: '1.1-1' }} กม.</strong></div>
-    <div class="card stat"><span class="muted">รายได้</span><strong>{{ sum().revenue | number: '1.0-0' }} ฿</strong></div>
-    <div class="card stat"><span class="muted">ค่าอาหาร</span><strong>{{ sum().food | number: '1.0-0' }} ฿</strong></div>
-    <div class="card stat"><span class="muted">ค่าส่ง</span><strong>{{ sum().fee | number: '1.2-2' }} ฿</strong></div>
-    <div class="card stat profit" [class.neg]="sum().profit < 0">
-      <span class="muted">กำไร</span><strong>{{ sum().profit | number: '1.2-2' }} ฿</strong>
+    <div class="card stat"><span class="muted">ไรเดอร์</span><strong>{{ s.riders }} คน</strong></div>
+    <div class="card stat"><span class="muted">ออเดอร์ / กล่อง</span><strong>{{ s.orders }} / {{ s.boxes }}</strong></div>
+    <div class="card stat"><span class="muted">ระยะรวม</span><strong>{{ s.km | number: '1.1-1' }} กม.</strong></div>
+    <div class="card stat"><span class="muted">รายได้</span><strong>{{ s.revenue | number: '1.0-0' }} ฿</strong></div>
+    <div class="card stat"><span class="muted">ค่าอาหาร</span><strong>{{ s.food | number: '1.0-0' }} ฿</strong></div>
+    <div class="card stat"><span class="muted">ค่าส่ง</span><strong>{{ s.fee | number: '1.2-2' }} ฿</strong></div>
+    <div class="card stat profit" [class.neg]="s.profit < 0">
+      <span class="muted">กำไร</span><strong>{{ s.profit | number: '1.2-2' }} ฿</strong>
     </div>
   </div>
 
   @if (solutions().length > 1) {
     <div class="alts">
-      @for (s of solutions(); track s.sig; let i = $index) {
+      @for (sol of solutions(); track sol.sig; let i = $index) {
         <button class="btn sm" [class.primary]="i === sel()" (click)="sel.set(i)">
           ทางเลือก {{ i + 1 }}{{ i === 0 ? ' (ดีสุด)' : '' }}
         </button>
@@ -92,28 +102,30 @@
 }
 
 <!-- ===== ส่วนที่ 3: ใบงานไรเดอร์ + แผนที่ + ปุ่มยืนยัน ===== -->
-@if (routes().length) {
+@if (trips().length) {
   <div class="grid">
     <section class="riders">
-      @for (r of routes(); track r.rider) {
+      @for (r of trips(); track r.key) {
         <article class="card rider">
           <div class="rider-head">
             <i class="dot" [style.background]="r.color"></i>
-            <b>ไรเดอร์ {{ r.rider }}</b>
+            <b>{{ r.title }}</b>
             <span class="muted">{{ r.stops.length }} จุด · {{ r.boxes }} กล่อง · {{ r.km | number: '1.2-2' }} กม.</span>
             <strong class="fee">{{ r.fee | number: '1.2-2' }} ฿</strong>
           </div>
           <ol>
             @for (x of r.stops; track $index) {
-              <li [class.late]="x.at > LIMIT_MIN" [class.done]="x.done">
-                {{ x.name }} <span class="muted">· {{ x.boxes }} กล่อง · ถึง {{ t(x.at) }}</span>
+              <li [class.late]="x.at > limit()" [class.done]="x.done">
+                {{ x.name }} <span class="muted">· {{ x.quantity }} กล่อง · ถึง {{ t(x.at) }}</span>
               </li>
             }
           </ol>
           @if (r.code) {
             <div class="code">
-              รหัสใบงาน <b>{{ r.code }}</b>
-              <a [routerLink]="['/rider']" [queryParams]="{ code: r.code }">เปิดหน้าไรเดอร์</a>
+              เลขใบงาน <b>{{ r.code }}</b>
+              @if (plan()?.status === 'SELECTED') {
+                <a [routerLink]="['/rider']" [queryParams]="{ code: r.code }">เปิดหน้าไรเดอร์</a>
+              }
               <span class="muted">ส่งแล้ว {{ doneCount(r) }}/{{ r.stops.length }}</span>
             </div>
           }
@@ -127,14 +139,66 @@
   </div>
 
   <div class="card confirm">
-    @if (confirmed()) {
-      <p>ยืนยันแผนแล้ว แจ้งรหัสใบงาน 4 หลักให้ไรเดอร์แต่ละคน</p>
+    @if (viewingPlan()) {
+      <p>
+        @if (plan()!.status === 'SELECTED') {
+          แผนนี้เลือกใช้แล้ว แจ้งเลขใบงานให้ไรเดอร์แต่ละคน
+        } @else {
+          แผนนี้ยังไม่ได้เลือกใช้
+        }
+      </p>
       <button class="btn" (click)="load()">รีเฟรชสถานะการส่ง</button>
     } @else {
-      <p>พอใจกับเส้นทางนี้แล้ว กดยืนยันเพื่อออกรหัสใบงานให้ไรเดอร์</p>
-      <button class="btn primary" (click)="confirm()" [disabled]="busy() || sum().late > 0">
-        {{ busy() ? 'กำลังออกใบงาน…' : 'ยืนยันและออกใบงาน' }}
+      <p>พอใจกับเส้นทางนี้แล้ว กดบันทึกเพื่อเก็บเป็นเวอร์ชันใหม่และออกเลขใบงานให้ไรเดอร์</p>
+      <button class="btn primary" (click)="confirm()" [disabled]="busy() || (sum()?.late ?? 0) > 0">
+        {{ busy() ? 'กำลังบันทึก…' : 'บันทึกและเลือกใช้แผนนี้' }}
       </button>
     }
+  </div>
+}
+
+<!-- ===== ส่วนที่ 4: เทียบทุกเวอร์ชันของวันนี้ (v_plan_compare) ===== -->
+@if (versions().length) {
+  <div class="card versions">
+    <h2>เทียบแผนของวันนี้</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>เวอร์ชัน</th>
+            <th>วิธีคำนวณ</th>
+            <th>ไรเดอร์</th>
+            <th>ระยะรวม</th>
+            <th>ค่าส่ง</th>
+            <th>ค่าส่ง/กล่อง</th>
+            <th>กำไร</th>
+            <th>ถึงช้าสุด</th>
+            <th>สถานะ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (v of versions(); track v.planId) {
+            <tr [class.selected]="v.planId === plan()?.planId && viewingPlan()">
+              <td>{{ v.versionNo }}</td>
+              <td class="muted">{{ v.algorithm }}</td>
+              <td>{{ v.riderCount }}</td>
+              <td>{{ v.totalDistanceKm | number: '1.2-2' }} กม.</td>
+              <td>{{ v.deliveryCost | number: '1.2-2' }}</td>
+              <td>{{ v.deliveryCostPerBox | number: '1.2-2' }}</td>
+              <td [class.neg]="v.profit < 0"><b>{{ v.profit | number: '1.2-2' }}</b></td>
+              <td [class.neg]="!v.isOnTime">{{ v.latestEta }}</td>
+              <td>{{ v.status === 'SELECTED' ? 'เลือกใช้' : v.status === 'DRAFT' ? 'ร่าง' : 'ไม่ใช้' }}</td>
+              <td class="nowrap">
+                <button class="btn sm" (click)="view(v)">ดู</button>
+                @if (v.status !== 'SELECTED') {
+                  <button class="btn sm" (click)="select(v)" [disabled]="busy()">เลือกใช้</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </div>
 }

@@ -11,15 +11,17 @@ export class CustomerService {
   private http = inject(HttpClient);
   private url = `${environment.apiUrl}/customers`;
 
-  getAll(): Observable<Customer[]> {
-    return this.http.get<Customer[]>(this.url);
+  // ค่าเริ่มต้นได้เฉพาะลูกค้าที่ยังใช้งาน, includeDeleted = รวมที่ถูกลบแล้ว
+  getAll(includeDeleted = false): Observable<Customer[]> {
+    const params = includeDeleted ? new HttpParams().set('all', 'true') : new HttpParams();
+    return this.http.get<Customer[]>(this.url, { params });
   }
 
   getById(id: number): Observable<Customer> {
     return this.http.get<Customer>(`${this.url}/${id}`);
   }
 
-  // ค้นจากส่วนหนึ่งของชื่อหรือนามสกุล
+  // ค้นจากส่วนหนึ่งของชื่อหรือเบอร์โทร
   search(q: string): Observable<Customer[]> {
     return this.http.get<Customer[]>(`${this.url}/search`, { params: { q } });
   }
@@ -42,7 +44,12 @@ export class CustomerService {
     return this.http.put<WriteResult>(`${this.url}/${id}`, body);
   }
 
-  // ออเดอร์ของลูกค้าคนนี้จะถูกลบตาม (ON DELETE CASCADE)
+  // กู้ลูกค้าที่ถูกลบกลับมา
+  restore(id: number): Observable<WriteResult> {
+    return this.http.put<WriteResult>(`${this.url}/${id}`, { isActive: true });
+  }
+
+  // ลบแบบ soft delete (is_active = 0) ออเดอร์เก่ายังอยู่
   delete(id: number): Observable<WriteResult> {
     return this.http.delete<WriteResult>(`${this.url}/${id}`);
   }
